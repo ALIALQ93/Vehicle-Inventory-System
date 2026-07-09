@@ -2404,6 +2404,9 @@
             <button class="nav-tab" onclick="showPage('tracking')" id="tab-tracking">
                 <i class="fas fa-route"></i> <span data-i18n="nav.tracking">التتبع</span>
             </button>
+            <button class="nav-tab" onclick="showPage('maintenance')" id="tab-maintenance">
+                <i class="fas fa-screwdriver-wrench"></i> <span data-i18n="nav.maintenance">سجل الصيانة</span>
+            </button>
             <button class="nav-tab" onclick="showPage('settings')" id="tab-settings">
                 <i class="fas fa-cog"></i> <span data-i18n="nav.settings">الإعدادات</span>
             </button>
@@ -2828,6 +2831,56 @@
                             <p style="margin:12px 0 0; font-size:12.5px; color:var(--text-light);" data-i18n="pages.tracking.mapHint">لإظهار المشاريع على الخريطة، حدّد إحداثيات كل مشروع عبر زر «تحديد مواقع المشاريع».</p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Page: Maintenance Log -->
+            <div id="page-maintenance" class="page-content">
+                <div class="trk-wrap">
+                    <div class="trk-header">
+                        <h2 class="trk-title"><i class="fas fa-screwdriver-wrench"></i> <span data-i18n="pages.maintenance.title">سجل الصيانة</span></h2>
+                    </div>
+
+                    <div class="trk-kpis">
+                        <div class="trk-kpi"><div class="k-num" id="mnt-count">0</div><div class="k-lbl"><i class="fas fa-list-check"></i> <span data-i18n="pages.maintenance.totalRecords">إجمالي السجلات</span></div></div>
+                        <div class="trk-kpi"><div class="k-num" id="mnt-vehicles">0</div><div class="k-lbl"><i class="fas fa-car-side"></i> <span data-i18n="pages.maintenance.vehicles">مركبات مصانة</span></div></div>
+                        <div class="trk-kpi good"><div class="k-num" id="mnt-cost">0</div><div class="k-lbl"><i class="fas fa-money-bill-wave"></i> <span data-i18n="pages.maintenance.totalCost">إجمالي التكلفة</span></div></div>
+                        <div class="trk-kpi"><div class="k-num" id="mnt-month">0</div><div class="k-lbl"><i class="fas fa-calendar-day"></i> <span data-i18n="pages.maintenance.thisMonth">هذا الشهر</span></div></div>
+                        <div class="trk-kpi warn"><div class="k-num" id="mnt-upcoming">0</div><div class="k-lbl"><i class="fas fa-hourglass-half"></i> <span data-i18n="pages.maintenance.upcoming">صيانات قادمة</span></div></div>
+                        <div class="trk-kpi danger"><div class="k-num" id="mnt-overdue">0</div><div class="k-lbl"><i class="fas fa-triangle-exclamation"></i> <span data-i18n="pages.maintenance.overdue">متأخرة</span></div></div>
+                    </div>
+
+                    <div class="trk-filters">
+                        <div class="fg search">
+                            <label data-i18n="buttons.search">بحث</label>
+                            <input type="text" id="mnt-search" placeholder="رقم المركبة، الورشة، الوصف..." oninput="renderMaintenance()">
+                        </div>
+                        <div class="fg">
+                            <label data-i18n="pages.maintenance.type">النوع</label>
+                            <select id="mnt-type" onchange="renderMaintenance()"><option value="">كل الأنواع</option></select>
+                        </div>
+                        <div class="fg">
+                            <label data-i18n="pages.maintenance.status">الحالة</label>
+                            <select id="mnt-status" onchange="renderMaintenance()"><option value="">كل الحالات</option></select>
+                        </div>
+                        <div class="fg">
+                            <label data-i18n="pages.tracking.fromDate">من تاريخ</label>
+                            <input type="date" id="mnt-from-date" onchange="renderMaintenance()">
+                        </div>
+                        <div class="fg">
+                            <label data-i18n="pages.tracking.toDate">إلى تاريخ</label>
+                            <input type="date" id="mnt-to-date" onchange="renderMaintenance()">
+                        </div>
+                        <button class="trk-reset" onclick="resetMaintenanceFilters()"><i class="fas fa-rotate-left"></i> <span data-i18n="pages.tracking.reset">إعادة تعيين</span></button>
+                        <button class="trk-reset" onclick="exportMaintenanceReport()"><i class="fas fa-file-excel"></i> <span data-i18n="pages.tracking.exportReport">تصدير</span></button>
+                    </div>
+
+                    <div class="trk-charts-grid" style="margin-bottom:18px;">
+                        <div class="trk-section"><h3 style="margin:0 0 14px; font-size:15px; color:var(--text-dark);"><i class="fas fa-chart-pie" style="color:var(--primary-color);"></i> <span data-i18n="pages.maintenance.byType">حسب النوع</span></h3><canvas id="mnt-chart-type" height="220"></canvas></div>
+                        <div class="trk-section"><h3 style="margin:0 0 14px; font-size:15px; color:var(--text-dark);"><i class="fas fa-coins" style="color:var(--primary-color);"></i> <span data-i18n="pages.maintenance.costByMonth">التكلفة حسب الشهر</span></h3><canvas id="mnt-chart-cost" height="220"></canvas></div>
+                    </div>
+
+                    <div id="mnt-table"></div>
                 </div>
             </div>
 
@@ -3579,6 +3632,7 @@
                     reports: 'التقارير',
                     vehicles: 'المركبات',
                     tracking: 'تتبع المركبات والمشاريع',
+                    maintenance: 'سجل الصيانة',
                     settings: 'الإعدادات',
                     profile: 'الملف الشخصي',
                     users: 'إدارة المستخدمين',
@@ -3719,6 +3773,19 @@
                         projectLocations: 'مواقع المشاريع',
                         setLocations: 'تحديد مواقع المشاريع',
                         mapHint: 'لإظهار المشاريع على الخريطة، حدّد إحداثيات كل مشروع عبر زر «تحديد مواقع المشاريع».'
+                    },
+                    maintenance: {
+                        title: 'سجل الصيانة',
+                        totalRecords: 'إجمالي السجلات',
+                        vehicles: 'مركبات مصانة',
+                        totalCost: 'إجمالي التكلفة',
+                        thisMonth: 'هذا الشهر',
+                        upcoming: 'صيانات قادمة',
+                        overdue: 'متأخرة',
+                        type: 'النوع',
+                        status: 'الحالة',
+                        byType: 'حسب النوع',
+                        costByMonth: 'التكلفة حسب الشهر'
                     },
                     settings: {
                         title: 'الإعدادات',
@@ -3898,6 +3965,7 @@
                     vehicles: 'Vehicles',
                     users: 'User Management',
                     tracking: 'Tracking',
+                    maintenance: 'Maintenance Log',
                     settings: 'Settings',
                     profile: 'Profile',
                     logout: 'Logout'
@@ -4037,6 +4105,19 @@
                         projectLocations: 'Project Locations',
                         setLocations: 'Set Project Locations',
                         mapHint: 'To show projects on the map, set coordinates for each project via the "Set Project Locations" button.'
+                    },
+                    maintenance: {
+                        title: 'Maintenance Log',
+                        totalRecords: 'Total Records',
+                        vehicles: 'Serviced Vehicles',
+                        totalCost: 'Total Cost',
+                        thisMonth: 'This Month',
+                        upcoming: 'Upcoming',
+                        overdue: 'Overdue',
+                        type: 'Type',
+                        status: 'Status',
+                        byType: 'By Type',
+                        costByMonth: 'Cost by Month'
                     },
                     settings: {
                         title: 'Settings',
@@ -10983,6 +11064,8 @@
                 loadReportsPage();
             } else if (pageId === 'tracking') {
                 loadTrackingPage();
+            } else if (pageId === 'maintenance') {
+                loadMaintenancePage();
             } else if (pageId === 'profile') {
                 loadProfilePage();
             } else if (pageId === 'settings') {
@@ -11173,6 +11256,209 @@
                         </div>
                     </div>`;
             }
+        }
+
+        // ===== Maintenance Log (consolidated report) =====
+        let maintenanceRecordsCache = [];
+        let maintenanceChartInstances = {};
+
+        async function loadMaintenancePage() {
+            const user = await getCurrentUser();
+            if (!user) return;
+            if (!Array.isArray(allVehicles)) allVehicles = [];
+
+            maintenanceRecordsCache = [];
+            try {
+                const { collection, query, where, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                const snap = await getDocs(query(collection(window.firebaseDb, 'vehicleMaintenance'), where('userId', '==', user.uid)));
+                snap.forEach(d => {
+                    const data = d.data();
+                    maintenanceRecordsCache.push({
+                        id: d.id,
+                        ...data,
+                        _date: trkToDate(data.maintenanceDate) || trkToDate(data.createdAt),
+                        _next: trkToDate(data.nextMaintenanceDate)
+                    });
+                });
+            } catch (e) {
+                console.error('Error loading maintenance records:', e);
+                showToast('حدث خطأ أثناء تحميل سجل الصيانة', 'error');
+            }
+
+            // Populate filter options
+            const fill = (id, values) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const base = el.querySelector('option')?.outerHTML || '<option value="">الكل</option>';
+                el.innerHTML = base + [...new Set(values.filter(Boolean))].sort().map(x => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join('');
+            };
+            fill('mnt-type', maintenanceRecordsCache.map(r => r.type));
+            fill('mnt-status', maintenanceRecordsCache.map(r => r.status));
+
+            renderMaintenance();
+        }
+
+        function getMaintenanceFiltered() {
+            const search = (document.getElementById('mnt-search')?.value || '').trim().toLowerCase();
+            const type = document.getElementById('mnt-type')?.value || '';
+            const status = document.getElementById('mnt-status')?.value || '';
+            const from = document.getElementById('mnt-from-date')?.value || '';
+            const to = document.getElementById('mnt-to-date')?.value || '';
+            const fromTs = from ? new Date(from + 'T00:00:00').getTime() : null;
+            const toTs = to ? new Date(to + 'T23:59:59').getTime() : null;
+
+            return maintenanceRecordsCache.filter(r => {
+                if (type && r.type !== type) return false;
+                if (status && r.status !== status) return false;
+                if (fromTs && (!r._date || r._date.getTime() < fromTs)) return false;
+                if (toTs && (!r._date || r._date.getTime() > toTs)) return false;
+                if (search) {
+                    const hay = [r.vehicleNumber, r.workshop, r.description, r.notes, r.type, r.status].filter(Boolean).join(' ').toLowerCase();
+                    if (!hay.includes(search)) return false;
+                }
+                return true;
+            });
+        }
+
+        function resetMaintenanceFilters() {
+            ['mnt-search', 'mnt-type', 'mnt-status', 'mnt-from-date', 'mnt-to-date'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            renderMaintenance();
+        }
+
+        function renderMaintenance() {
+            const records = getMaintenanceFiltered();
+            const now = new Date();
+            const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const soon = new Date(now.getTime() + 30 * 86400000);
+
+            const totalCost = records.reduce((sum, r) => sum + (typeof r.cost === 'number' ? r.cost : 0), 0);
+            const vehiclesSet = new Set(records.map(r => r.vehicleId).filter(Boolean));
+            const thisMonth = records.filter(r => r._date && `${r._date.getFullYear()}-${String(r._date.getMonth() + 1).padStart(2, '0')}` === monthKey).length;
+            const upcoming = records.filter(r => r._next && r._next >= now && r._next <= soon).length;
+            const overdue = records.filter(r => r._next && r._next < now).length;
+
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            set('mnt-count', records.length);
+            set('mnt-vehicles', vehiclesSet.size);
+            set('mnt-cost', totalCost.toLocaleString('en-US'));
+            set('mnt-month', thisMonth);
+            set('mnt-upcoming', upcoming);
+            set('mnt-overdue', overdue);
+
+            // Charts
+            if (typeof Chart !== 'undefined') {
+                Object.values(maintenanceChartInstances).forEach(c => { try { c.destroy(); } catch (e) {} });
+                maintenanceChartInstances = {};
+
+                const byType = {};
+                records.forEach(r => { const tp = r.type || 'غير محدد'; byType[tp] = (byType[tp] || 0) + 1; });
+
+                const costByMonth = {};
+                records.forEach(r => {
+                    if (!r._date) return;
+                    const key = `${r._date.getFullYear()}-${String(r._date.getMonth() + 1).padStart(2, '0')}`;
+                    costByMonth[key] = (costByMonth[key] || 0) + (typeof r.cost === 'number' ? r.cost : 0);
+                });
+                const monthKeys = Object.keys(costByMonth).sort().slice(-12);
+
+                const ct = document.getElementById('mnt-chart-type');
+                if (ct) maintenanceChartInstances.type = new Chart(ct, {
+                    type: 'doughnut',
+                    data: { labels: Object.keys(byType), datasets: [{ data: Object.values(byType), backgroundColor: REPORT_PALETTE }] },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+                });
+                const cc = document.getElementById('mnt-chart-cost');
+                if (cc) maintenanceChartInstances.cost = new Chart(cc, {
+                    type: 'bar',
+                    data: { labels: monthKeys, datasets: [{ label: 'التكلفة', data: monthKeys.map(k => costByMonth[k]), backgroundColor: '#4361ee' }] },
+                    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                });
+            }
+
+            // Table
+            const container = document.getElementById('mnt-table');
+            if (!container) return;
+            const sorted = [...records].sort((a, b) => (b._date ? b._date.getTime() : 0) - (a._date ? a._date.getTime() : 0));
+            container.innerHTML = `
+                <div class="trk-section">
+                    <h3 style="margin:0 0 16px; font-size:15px; color:var(--text-dark);"><i class="fas fa-table-list" style="color:var(--primary-color);"></i> سجل الصيانات (${sorted.length})</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="trk-feed-table">
+                            <thead><tr><th>التاريخ</th><th>المركبة</th><th>النوع</th><th>الحالة</th><th>التكلفة</th><th>الورشة</th><th>الصيانة القادمة</th><th></th></tr></thead>
+                            <tbody>
+                                ${sorted.length ? sorted.map(r => {
+                                    const overdueRow = r._next && r._next < now;
+                                    return `
+                                    <tr>
+                                        <td style="color:var(--text-light);">${trkFormatDate(r._date)}</td>
+                                        <td style="font-weight:600;">${escapeHtml(r.vehicleNumber || '')}</td>
+                                        <td>${escapeHtml(r.type || '')}</td>
+                                        <td>${escapeHtml(r.status || '')}</td>
+                                        <td>${typeof r.cost === 'number' ? (r.cost.toLocaleString('en-US') + ' ' + escapeHtml(r.currency || '')) : '—'}</td>
+                                        <td style="color:var(--text-light);">${escapeHtml(r.workshop || '—')}</td>
+                                        <td style="color:${overdueRow ? '#dc3545' : 'var(--text-light)'}; font-weight:${overdueRow ? '700' : '400'};">${r._next ? trkFormatDate(r._next) : '—'}</td>
+                                        <td>
+                                            <button onclick="showMaintenanceModal('${escapeJsString(r.vehicleId)}', '${escapeJsString(r.vehicleNumber || '')}', '${escapeJsString(r.id)}')" title="تعديل"
+                                                    style="padding:5px 9px; background:transparent; color:var(--primary-color); border:1px solid var(--primary-color); border-radius:6px; cursor:pointer; font-size:12px;"><i class="fas fa-edit"></i></button>
+                                            <button onclick="deleteMaintenanceFromLog('${escapeJsString(r.vehicleId)}', '${escapeJsString(r.id)}', '${escapeJsString(r.vehicleNumber || '')}')" title="حذف"
+                                                    style="padding:5px 9px; background:transparent; color:#dc3545; border:1px solid #dc3545; border-radius:6px; cursor:pointer; font-size:12px; margin-right:4px;"><i class="fas fa-trash"></i></button>
+                                        </td>
+                                    </tr>`;
+                                }).join('') : '<tr><td colspan="8" style="text-align:center; color:var(--text-light); padding:30px;">لا توجد سجلات صيانة مطابقة</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }
+
+        async function deleteMaintenanceFromLog(vehicleId, maintenanceId, vehicleNumber) {
+            if (!confirm(`هل أنت متأكد من حذف سجل الصيانة للمركبة ${vehicleNumber}؟`)) return;
+            try {
+                showLoading(true);
+                const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                await deleteDoc(doc(window.firebaseDb, 'vehicleMaintenance', maintenanceId));
+                maintenanceRecordsCache = maintenanceRecordsCache.filter(r => r.id !== maintenanceId);
+                showToast('تم حذف سجل الصيانة بنجاح', 'success');
+                renderMaintenance();
+            } catch (error) {
+                console.error('Error deleting maintenance record:', error);
+                showToast('حدث خطأ أثناء الحذف', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function exportMaintenanceReport() {
+            const records = getMaintenanceFiltered();
+            if (records.length === 0) { showToast('لا توجد سجلات للتصدير', 'error'); return; }
+            let csv = 'التاريخ,رقم المركبة,النوع,الحالة,التكلفة,العملة,الورشة,الوصف,الصيانة القادمة,ملاحظات\n';
+            const sorted = [...records].sort((a, b) => (b._date ? b._date.getTime() : 0) - (a._date ? a._date.getTime() : 0));
+            sorted.forEach(r => {
+                const row = [
+                    trkFormatDate(r._date),
+                    r.vehicleNumber || '',
+                    r.type || '',
+                    r.status || '',
+                    typeof r.cost === 'number' ? r.cost : '',
+                    r.currency || '',
+                    r.workshop || '',
+                    r.description || '',
+                    r._next ? trkFormatDate(r._next) : '',
+                    (r.notes || '')
+                ].map(f => `"${String(f).replace(/"/g, '""')}"`).join(',');
+                csv += row + '\n';
+            });
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `سجل_الصيانة_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('تم تصدير سجل الصيانة بنجاح', 'success');
         }
 
         async function loadProfilePage() {
@@ -11967,6 +12253,11 @@
         window.loadReportsPage = loadReportsPage;
         window.renderReports = renderReports;
         window.resetReportsFilters = resetReportsFilters;
+        window.loadMaintenancePage = loadMaintenancePage;
+        window.renderMaintenance = renderMaintenance;
+        window.resetMaintenanceFilters = resetMaintenanceFilters;
+        window.exportMaintenanceReport = exportMaintenanceReport;
+        window.deleteMaintenanceFromLog = deleteMaintenanceFromLog;
         window.loadTrackingPage = loadTrackingPage;
         window.filterTracking = filterTracking;
         window.renderTracking = renderTracking;
