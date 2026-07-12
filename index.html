@@ -2853,7 +2853,7 @@
                     <div class="trk-filters">
                         <div class="fg search">
                             <label data-i18n="buttons.search">بحث</label>
-                            <input type="text" id="mnt-search" placeholder="رقم المركبة، الورشة، الوصف..." oninput="renderMaintenance()">
+                            <input type="text" id="mnt-search" placeholder="رقم المركبة، اللوحة، الورشة، الوصف..." oninput="renderMaintenance()">
                         </div>
                         <div class="fg">
                             <label data-i18n="pages.maintenance.type">النوع</label>
@@ -2873,6 +2873,7 @@
                         </div>
                         <button class="trk-reset" onclick="resetMaintenanceFilters()"><i class="fas fa-rotate-left"></i> <span data-i18n="pages.tracking.reset">إعادة تعيين</span></button>
                         <button class="trk-reset" onclick="exportMaintenanceReport()"><i class="fas fa-file-excel"></i> <span data-i18n="pages.tracking.exportReport">تصدير</span></button>
+                        <button class="trk-reset" onclick="printMaintenanceReport()"><i class="fas fa-print"></i> <span data-i18n="pages.maintenance.print">طباعة A4</span></button>
                     </div>
 
                     <div class="trk-charts-grid" style="margin-bottom:18px;">
@@ -3381,6 +3382,23 @@
                             <label for="kilometer-date"><i class="fas fa-calendar"></i> <span data-i18n="vehicleForm.fields.readingDate">تاريخ قراءة العداد:</span></label>
                             <input type="date" id="kilometer-date">
                         </div>
+
+                        <div class="form-group">
+                            <label for="kilometer-fuel-amount"><i class="fas fa-gas-pump"></i> <span data-i18n="vehicleForm.fields.fuelAmount">الوقود المعبأ (لتر):</span></label>
+                            <input type="number" id="kilometer-fuel-amount" min="0" step="0.01" placeholder="مثل: 50" style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px;">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="kilometer-fuel-type"><i class="fas fa-oil-can"></i> <span data-i18n="vehicleForm.fields.fuelType">نوع المادة المعبأة:</span></label>
+                            <select id="kilometer-fuel-type" style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px;">
+                                <option value="">— اختر النوع —</option>
+                                <option value="بنزين">بنزين</option>
+                                <option value="ديزل">ديزل</option>
+                                <option value="غاز">غاز</option>
+                                <option value="كيروسين">كيروسين</option>
+                                <option value="أخرى">أخرى</option>
+                            </select>
+                        </div>
                     </div>
                     <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 8px; font-size: 13px; color: #1976d2;">
                         <i class="fas fa-info-circle"></i> <span data-i18n="vehicleForm.note">ملاحظة: سيتم تحويل القيم من الميل إلى الكيلومتر تلقائياً (1 ميل = 1.60934 كم)</span>
@@ -3785,7 +3803,8 @@
                         type: 'النوع',
                         status: 'الحالة',
                         byType: 'حسب النوع',
-                        costByMonth: 'التكلفة حسب الشهر'
+                        costByMonth: 'التكلفة حسب الشهر',
+                        print: 'طباعة A4'
                     },
                     settings: {
                         title: 'الإعدادات',
@@ -3879,6 +3898,8 @@
                         currentReading: 'قراءة العداد الحالية:',
                         unit: 'وحدة القياس:',
                         readingDate: 'تاريخ قراءة العداد:',
+                        fuelAmount: 'الوقود المعبأ (لتر):',
+                        fuelType: 'نوع المادة المعبأة:',
                         notes: 'ملاحظات:',
                         driver1: 'السائق الأول:',
                         driver2: 'السائق الثاني:'
@@ -4117,7 +4138,8 @@
                         type: 'Type',
                         status: 'Status',
                         byType: 'By Type',
-                        costByMonth: 'Cost by Month'
+                        costByMonth: 'Cost by Month',
+                        print: 'Print A4'
                     },
                     settings: {
                         title: 'Settings',
@@ -4211,6 +4233,8 @@
                         currentReading: 'Current Reading:',
                         unit: 'Unit:',
                         readingDate: 'Reading Date:',
+                        fuelAmount: 'Fuel Filled (L):',
+                        fuelType: 'Fuel / Material Type:',
                         notes: 'Notes:',
                         driver1: 'Driver 1:',
                         driver2: 'Driver 2:'
@@ -5875,13 +5899,10 @@
             }
 
             try {
-                const { collection, query, getDocs, where, orderBy } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                const { collection, query, getDocs, orderBy } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
                 const driversRef = collection(window.firebaseDb, 'drivers');
-                const q = query(
-                    driversRef,
-                    where('userId', '==', user.uid),
-                    orderBy('name', 'asc')
-                );
+                // Shared data: no userId filter
+                const q = query(driversRef, orderBy('name', 'asc'));
                 const querySnapshot = await getDocs(q);
                 allDrivers = [];
                 querySnapshot.forEach((doc) => {
@@ -5904,10 +5925,9 @@
                     console.warn('Index required for drivers query. Using fallback method (without orderBy).');
                     
                     try {
-                        const { collection, query, getDocs, where } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                        const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
                         const driversRef = collection(window.firebaseDb, 'drivers');
-                        const q = query(driversRef, where('userId', '==', user.uid));
-                        const querySnapshot = await getDocs(q);
+                        const querySnapshot = await getDocs(driversRef);
                         allDrivers = [];
                         querySnapshot.forEach((doc) => {
                             allDrivers.push({
@@ -6525,11 +6545,11 @@
             }
             
             try {
-                const { collection, query, getDocs, where } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
                 
                 const vehiclesRef = collection(window.firebaseDb, 'vehicles');
-                const q = query(vehiclesRef, where('userId', '==', user.uid));
-                const querySnapshot = await getDocs(q);
+                // Shared numbering across all users
+                const querySnapshot = await getDocs(vehiclesRef);
                 
                 let lastNumber = 0;
                 
@@ -8714,6 +8734,22 @@
                 vehicleData.lastKilometerDate = kilometerDate;
                 vehicleData.lastKilometerUnit = kilometerUnit;
                 vehicleData.lastKilometerOriginalValue = readingValue;
+
+                const fuelAmountRaw = document.getElementById('kilometer-fuel-amount')?.value;
+                const fuelAmount = fuelAmountRaw !== undefined && fuelAmountRaw !== '' ? parseFloat(fuelAmountRaw) : null;
+                const fuelType = (document.getElementById('kilometer-fuel-type')?.value || '').trim() || null;
+                if (fuelAmount !== null && (isNaN(fuelAmount) || fuelAmount < 0)) {
+                    showToast('يرجى إدخال كمية وقود صحيحة', 'error');
+                    document.getElementById('kilometer-fuel-amount')?.focus();
+                    return;
+                }
+                if (fuelAmount !== null && fuelAmount > 0 && !fuelType) {
+                    showToast('يرجى تحديد نوع المادة المعبأة', 'error');
+                    document.getElementById('kilometer-fuel-type')?.focus();
+                    return;
+                }
+                vehicleData.lastFuelAmount = fuelAmount;
+                vehicleData.lastFuelType = fuelType;
             }
             
             // Validate annual validity dates
@@ -8831,6 +8867,10 @@
                             vehicleId: editingVehicleId,
                             vehicleNumber: vehicleData.vehicleNumber,
                             kilometers: vehicleData.lastKilometerReading,
+                            originalValue: vehicleData.lastKilometerOriginalValue || vehicleData.lastKilometerReading,
+                            originalUnit: vehicleData.lastKilometerUnit || 'km',
+                            fuelAmount: vehicleData.lastFuelAmount ?? null,
+                            fuelType: vehicleData.lastFuelType || null,
                             readingDate: vehicleData.lastKilometerDate,
                             userId: user.uid,
                             createdAt: serverTimestamp()
@@ -8865,6 +8905,10 @@
                             vehicleId: docRef.id,
                             vehicleNumber: vehicleData.vehicleNumber,
                             kilometers: vehicleData.lastKilometerReading,
+                            originalValue: vehicleData.lastKilometerOriginalValue || vehicleData.lastKilometerReading,
+                            originalUnit: vehicleData.lastKilometerUnit || 'km',
+                            fuelAmount: vehicleData.lastFuelAmount ?? null,
+                            fuelType: vehicleData.lastFuelType || null,
                             readingDate: vehicleData.lastKilometerDate,
                             userId: user.uid,
                             createdAt: serverTimestamp()
@@ -9208,10 +9252,10 @@
                 // Delete all related data first
                 let deletedCount = 0;
                 
-                // 1. Delete vehicle kilometers records
+                // 1. Delete vehicle kilometers records (all users)
                 try {
                     const kmRef = collection(window.firebaseDb, 'vehicleKilometers');
-                    const kmQuery = query(kmRef, where('vehicleId', '==', vehicleId), where('userId', '==', user.uid));
+                    const kmQuery = query(kmRef, where('vehicleId', '==', vehicleId));
                     const kmSnapshot = await getDocs(kmQuery);
                     const kmDeletePromises = [];
                     kmSnapshot.forEach((kmDoc) => {
@@ -9224,10 +9268,10 @@
                     console.warn('Error deleting kilometer records:', error);
                 }
                 
-                // 2. Delete vehicle documents (photos)
+                // 2. Delete vehicle documents (photos) — all users
                 try {
                     const docsRef = collection(window.firebaseDb, 'vehicleDocuments');
-                    const docsQuery = query(docsRef, where('vehicleId', '==', vehicleId), where('userId', '==', user.uid));
+                    const docsQuery = query(docsRef, where('vehicleId', '==', vehicleId));
                     const docsSnapshot = await getDocs(docsQuery);
                     const docsDeletePromises = [];
                     docsSnapshot.forEach((docItem) => {
@@ -9240,10 +9284,10 @@
                     console.warn('Error deleting document records:', error);
                 }
                 
-                // 3. Delete vehicle tracking records
+                // 3. Delete vehicle tracking records — all users
                 try {
                     const trackingRef = collection(window.firebaseDb, 'vehicleTracking');
-                    const trackingQuery = query(trackingRef, where('vehicleId', '==', vehicleId), where('userId', '==', user.uid));
+                    const trackingQuery = query(trackingRef, where('vehicleId', '==', vehicleId));
                     const trackingSnapshot = await getDocs(trackingQuery);
                     const trackingDeletePromises = [];
                     trackingSnapshot.forEach((trackDoc) => {
@@ -9255,8 +9299,24 @@
                 } catch (error) {
                     console.warn('Error deleting tracking records:', error);
                 }
+
+                // 4. Delete vehicle maintenance records — all users
+                try {
+                    const mntRef = collection(window.firebaseDb, 'vehicleMaintenance');
+                    const mntQuery = query(mntRef, where('vehicleId', '==', vehicleId));
+                    const mntSnapshot = await getDocs(mntQuery);
+                    const mntDeletePromises = [];
+                    mntSnapshot.forEach((mntDoc) => {
+                        mntDeletePromises.push(deleteDoc(doc(window.firebaseDb, 'vehicleMaintenance', mntDoc.id)));
+                        deletedCount++;
+                    });
+                    await Promise.all(mntDeletePromises);
+                    console.log(`Deleted ${mntSnapshot.size} maintenance records`);
+                } catch (error) {
+                    console.warn('Error deleting maintenance records:', error);
+                }
                 
-                // 4. Finally, delete the vehicle itself
+                // 5. Finally, delete the vehicle itself
                 await deleteDoc(doc(window.firebaseDb, 'vehicles', vehicleId));
                 
                 // Remove from local array
@@ -9654,6 +9714,8 @@
                                             <th style="padding: 12px; text-align: right;">التاريخ</th>
                                             <th style="padding: 12px; text-align: right;">عدد الكيلومترات</th>
                                             <th style="padding: 12px; text-align: right;">المسافة المقطوعة</th>
+                                            <th style="padding: 12px; text-align: right;">الوقود المعبأ</th>
+                                            <th style="padding: 12px; text-align: right;">نوع المادة</th>
                                             <th style="padding: 12px; text-align: right;">ملاحظات</th>
                                             <th style="padding: 12px; text-align: center;">إجراءات</th>
                                         </tr>
@@ -9694,12 +9756,19 @@
                                             if (distance !== null && distance < 0) {
                                                 distanceDisplay = `<span style="color: #f44336;">${distance.toLocaleString('en-US')} كم <i class="fas fa-exclamation-triangle"></i></span>`;
                                             }
+
+                                            const fuelDisplay = (typeof km.fuelAmount === 'number')
+                                                ? `${km.fuelAmount.toLocaleString('en-US')} لتر`
+                                                : '—';
+                                            const fuelTypeDisplay = km.fuelType ? escapeHtml(km.fuelType) : '—';
                                             
                                             return `
                                                 <tr style="border-bottom: 1px solid var(--border-color);">
                                                     <td style="padding: 10px; color: var(--text-dark);">${escapeHtml(date)}</td>
                                                     <td style="padding: 10px; font-weight: bold; color: var(--primary-color);">${displayValue}</td>
                                                     <td style="padding: 10px; color: var(--text-light);">${distanceDisplay}</td>
+                                                    <td style="padding: 10px; color: var(--text-dark);">${fuelDisplay}</td>
+                                                    <td style="padding: 10px; color: var(--text-dark);">${fuelTypeDisplay}</td>
                                                     <td style="padding: 10px; color: var(--text-light); font-size: 12px;">${resetIndicator}</td>
                                                     <td style="padding: 10px; text-align: center;">
                                                         <button onclick="deleteKilometerReading('${escapeJsString(vehicle.id)}', '${escapeJsString(km.id)}', '${escapeJsString(vehicle.vehicleNumber)}')" 
@@ -9997,10 +10066,10 @@
                 const { collection, query, getDocs, where, orderBy } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
                 
                 const kmRef = collection(window.firebaseDb, 'vehicleKilometers');
+                // Shared data: filter by vehicle only
                 const q = query(
                     kmRef, 
                     where('vehicleId', '==', vehicleId), 
-                    where('userId', '==', user.uid),
                     orderBy('readingDate', 'desc')
                 );
                 
@@ -10032,7 +10101,7 @@
                 try {
                     const { collection, query, getDocs, where } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
                     const kmRef = collection(window.firebaseDb, 'vehicleKilometers');
-                    const q = query(kmRef, where('vehicleId', '==', vehicleId), where('userId', '==', user.uid));
+                    const q = query(kmRef, where('vehicleId', '==', vehicleId));
                     const querySnapshot = await getDocs(q);
                     const kilometers = [];
                     
@@ -10115,6 +10184,23 @@
                             <label>تاريخ القراءة *:</label>
                             <input type="date" id="new-kilometer-date" required style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px;" value="${new Date().toISOString().split('T')[0]}">
                         </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label><i class="fas fa-gas-pump"></i> الوقود المعبأ (لتر):</label>
+                                <input type="number" id="new-fuel-amount" min="0" step="0.01" placeholder="مثل: 50" style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px;">
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fas fa-oil-can"></i> نوع المادة المعبأة:</label>
+                                <select id="new-fuel-type" style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px;">
+                                    <option value="">— اختر النوع —</option>
+                                    <option value="بنزين">بنزين</option>
+                                    <option value="ديزل">ديزل</option>
+                                    <option value="غاز">غاز</option>
+                                    <option value="كيروسين">كيروسين</option>
+                                    <option value="أخرى">أخرى</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="form-group" style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #f5f5f5; border-radius: 8px;">
                             <input type="checkbox" id="is-odometer-reset" style="width: 20px; height: 20px; cursor: pointer;">
                             <label for="is-odometer-reset" style="margin: 0; cursor: pointer; flex: 1;">
@@ -10192,9 +10278,24 @@
             const unit = document.getElementById('new-kilometer-unit').value;
             const readingDate = document.getElementById('new-kilometer-date').value;
             const isOdometerReset = document.getElementById('is-odometer-reset').checked;
-            
+            const fuelAmountRaw = document.getElementById('new-fuel-amount')?.value;
+            const fuelAmount = fuelAmountRaw !== undefined && fuelAmountRaw !== '' ? parseFloat(fuelAmountRaw) : null;
+            const fuelType = (document.getElementById('new-fuel-type')?.value || '').trim() || null;
+
             if (!readingValue || readingValue < 0) {
                 showToast('يرجى إدخال قيمة صحيحة لقراءة العداد', 'error');
+                return;
+            }
+
+            if (fuelAmount !== null && (isNaN(fuelAmount) || fuelAmount < 0)) {
+                showToast('يرجى إدخال كمية وقود صحيحة', 'error');
+                document.getElementById('new-fuel-amount')?.focus();
+                return;
+            }
+
+            if (fuelAmount !== null && fuelAmount > 0 && !fuelType) {
+                showToast('يرجى تحديد نوع المادة المعبأة', 'error');
+                document.getElementById('new-fuel-type')?.focus();
                 return;
             }
             
@@ -10229,6 +10330,8 @@
                     originalValue: readingValue,
                     originalUnit: unit,
                     isOdometerReset: isOdometerReset,
+                    fuelAmount: fuelAmount,
+                    fuelType: fuelType,
                     readingDate: dateToSave,
                     userId: user.uid,
                     createdAt: serverTimestamp()
@@ -10700,9 +10803,11 @@
                 showLoading(true);
                 const { collection, addDoc, doc, updateDoc, serverTimestamp, Timestamp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
                 
+                const vehicleForMnt = allVehicles.find(v => v.id === vehicleId);
                 const maintenanceData = {
                     vehicleId: vehicleId,
-                    vehicleNumber: allVehicles.find(v => v.id === vehicleId)?.vehicleNumber || '',
+                    vehicleNumber: vehicleForMnt?.vehicleNumber || '',
+                    plate: vehicleForMnt?.plate || vehicleForMnt?.plateNumber || vehicleForMnt?.licensePlate || null,
                     maintenanceDate: Timestamp.fromDate(new Date(maintenanceDate)),
                     type: type,
                     status: document.getElementById('maintenance-status').value || 'مكتملة',
@@ -11269,8 +11374,9 @@
 
             maintenanceRecordsCache = [];
             try {
-                const { collection, query, where, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-                const snap = await getDocs(query(collection(window.firebaseDb, 'vehicleMaintenance'), where('userId', '==', user.uid)));
+                const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                // Shared maintenance log: no userId filter
+                const snap = await getDocs(collection(window.firebaseDb, 'vehicleMaintenance'));
                 snap.forEach(d => {
                     const data = d.data();
                     maintenanceRecordsCache.push({
@@ -11298,6 +11404,14 @@
             renderMaintenance();
         }
 
+        function getMaintenanceVehiclePlate(record) {
+            if (record.plate || record.plateNumber || record.licensePlate) {
+                return record.plate || record.plateNumber || record.licensePlate;
+            }
+            const vehicle = (Array.isArray(allVehicles) ? allVehicles : []).find(v => v && (v.id === record.vehicleId || v.vehicleNumber === record.vehicleNumber));
+            return vehicle ? (vehicle.plate || vehicle.plateNumber || vehicle.licensePlate || '') : '';
+        }
+
         function getMaintenanceFiltered() {
             const search = (document.getElementById('mnt-search')?.value || '').trim().toLowerCase();
             const type = document.getElementById('mnt-type')?.value || '';
@@ -11313,7 +11427,8 @@
                 if (fromTs && (!r._date || r._date.getTime() < fromTs)) return false;
                 if (toTs && (!r._date || r._date.getTime() > toTs)) return false;
                 if (search) {
-                    const hay = [r.vehicleNumber, r.workshop, r.description, r.notes, r.type, r.status].filter(Boolean).join(' ').toLowerCase();
+                    const plate = getMaintenanceVehiclePlate(r);
+                    const hay = [r.vehicleNumber, plate, r.workshop, r.description, r.notes, r.type, r.status].filter(Boolean).join(' ').toLowerCase();
                     if (!hay.includes(search)) return false;
                 }
                 return true;
@@ -11381,30 +11496,50 @@
             const sorted = [...records].sort((a, b) => (b._date ? b._date.getTime() : 0) - (a._date ? a._date.getTime() : 0));
             container.innerHTML = `
                 <div class="trk-section">
-                    <h3 style="margin:0 0 16px; font-size:15px; color:var(--text-dark);"><i class="fas fa-table-list" style="color:var(--primary-color);"></i> سجل الصيانات (${sorted.length})</h3>
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+                        <h3 style="margin:0; font-size:15px; color:var(--text-dark);"><i class="fas fa-table-list" style="color:var(--primary-color);"></i> سجل الصيانات (${sorted.length})</h3>
+                        <button class="trk-reset" onclick="printMaintenanceReport()"><i class="fas fa-print"></i> طباعة A4</button>
+                    </div>
                     <div style="overflow-x:auto;">
-                        <table class="trk-feed-table">
-                            <thead><tr><th>التاريخ</th><th>المركبة</th><th>النوع</th><th>الحالة</th><th>التكلفة</th><th>الورشة</th><th>الصيانة القادمة</th><th></th></tr></thead>
+                        <table class="trk-feed-table" id="mnt-data-table">
+                            <thead>
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>المركبة</th>
+                                    <th>رقم اللوحة</th>
+                                    <th>النوع</th>
+                                    <th>الحالة</th>
+                                    <th>التكلفة</th>
+                                    <th>الورشة</th>
+                                    <th>وصف العمل المنجز</th>
+                                    <th>الصيانة القادمة</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 ${sorted.length ? sorted.map(r => {
                                     const overdueRow = r._next && r._next < now;
+                                    const plate = getMaintenanceVehiclePlate(r);
+                                    const desc = (r.description || '').trim();
                                     return `
                                     <tr>
-                                        <td style="color:var(--text-light);">${trkFormatDate(r._date)}</td>
+                                        <td style="color:var(--text-light); white-space:nowrap;">${trkFormatDate(r._date)}</td>
                                         <td style="font-weight:600;">${escapeHtml(r.vehicleNumber || '')}</td>
+                                        <td style="font-weight:600; white-space:nowrap;">${escapeHtml(plate || '—')}</td>
                                         <td>${escapeHtml(r.type || '')}</td>
                                         <td>${escapeHtml(r.status || '')}</td>
-                                        <td>${typeof r.cost === 'number' ? (r.cost.toLocaleString('en-US') + ' ' + escapeHtml(r.currency || '')) : '—'}</td>
+                                        <td style="white-space:nowrap;">${typeof r.cost === 'number' ? (r.cost.toLocaleString('en-US') + ' ' + escapeHtml(r.currency || '')) : '—'}</td>
                                         <td style="color:var(--text-light);">${escapeHtml(r.workshop || '—')}</td>
-                                        <td style="color:${overdueRow ? '#dc3545' : 'var(--text-light)'}; font-weight:${overdueRow ? '700' : '400'};">${r._next ? trkFormatDate(r._next) : '—'}</td>
-                                        <td>
+                                        <td style="max-width:280px; white-space:normal; line-height:1.45; color:var(--text-dark);">${escapeHtml(desc || '—')}</td>
+                                        <td style="color:${overdueRow ? '#dc3545' : 'var(--text-light)'}; font-weight:${overdueRow ? '700' : '400'}; white-space:nowrap;">${r._next ? trkFormatDate(r._next) : '—'}</td>
+                                        <td style="white-space:nowrap;">
                                             <button onclick="showMaintenanceModal('${escapeJsString(r.vehicleId)}', '${escapeJsString(r.vehicleNumber || '')}', '${escapeJsString(r.id)}')" title="تعديل"
                                                     style="padding:5px 9px; background:transparent; color:var(--primary-color); border:1px solid var(--primary-color); border-radius:6px; cursor:pointer; font-size:12px;"><i class="fas fa-edit"></i></button>
                                             <button onclick="deleteMaintenanceFromLog('${escapeJsString(r.vehicleId)}', '${escapeJsString(r.id)}', '${escapeJsString(r.vehicleNumber || '')}')" title="حذف"
                                                     style="padding:5px 9px; background:transparent; color:#dc3545; border:1px solid #dc3545; border-radius:6px; cursor:pointer; font-size:12px; margin-right:4px;"><i class="fas fa-trash"></i></button>
                                         </td>
                                     </tr>`;
-                                }).join('') : '<tr><td colspan="8" style="text-align:center; color:var(--text-light); padding:30px;">لا توجد سجلات صيانة مطابقة</td></tr>'}
+                                }).join('') : '<tr><td colspan="10" style="text-align:center; color:var(--text-light); padding:30px;">لا توجد سجلات صيانة مطابقة</td></tr>'}
                             </tbody>
                         </table>
                     </div>
@@ -11431,12 +11566,13 @@
         function exportMaintenanceReport() {
             const records = getMaintenanceFiltered();
             if (records.length === 0) { showToast('لا توجد سجلات للتصدير', 'error'); return; }
-            let csv = 'التاريخ,رقم المركبة,النوع,الحالة,التكلفة,العملة,الورشة,الوصف,الصيانة القادمة,ملاحظات\n';
+            let csv = 'التاريخ,رقم المركبة,رقم اللوحة,النوع,الحالة,التكلفة,العملة,الورشة,وصف العمل المنجز,الصيانة القادمة,ملاحظات\n';
             const sorted = [...records].sort((a, b) => (b._date ? b._date.getTime() : 0) - (a._date ? a._date.getTime() : 0));
             sorted.forEach(r => {
                 const row = [
                     trkFormatDate(r._date),
                     r.vehicleNumber || '',
+                    getMaintenanceVehiclePlate(r),
                     r.type || '',
                     r.status || '',
                     typeof r.cost === 'number' ? r.cost : '',
@@ -11459,6 +11595,152 @@
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
             showToast('تم تصدير سجل الصيانة بنجاح', 'success');
+        }
+
+        function printMaintenanceReport() {
+            const records = getMaintenanceFiltered();
+            if (records.length === 0) {
+                showToast('لا توجد سجلات للطباعة', 'error');
+                return;
+            }
+            const sorted = [...records].sort((a, b) => (b._date ? b._date.getTime() : 0) - (a._date ? a._date.getTime() : 0));
+            const totalCost = sorted.reduce((sum, r) => sum + (typeof r.cost === 'number' ? r.cost : 0), 0);
+            const printDate = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            const from = document.getElementById('mnt-from-date')?.value || '';
+            const to = document.getElementById('mnt-to-date')?.value || '';
+            const typeF = document.getElementById('mnt-type')?.value || '';
+            const statusF = document.getElementById('mnt-status')?.value || '';
+            const filterBits = [
+                typeF ? `النوع: ${typeF}` : '',
+                statusF ? `الحالة: ${statusF}` : '',
+                from ? `من: ${from}` : '',
+                to ? `إلى: ${to}` : ''
+            ].filter(Boolean).join(' · ') || 'كل السجلات';
+
+            const rowsHtml = sorted.map((r, i) => {
+                const plate = getMaintenanceVehiclePlate(r);
+                return `
+                <tr>
+                    <td class="c">${i + 1}</td>
+                    <td class="c">${escapeHtml(trkFormatDate(r._date))}</td>
+                    <td>${escapeHtml(r.vehicleNumber || '—')}</td>
+                    <td class="c">${escapeHtml(plate || '—')}</td>
+                    <td>${escapeHtml(r.type || '—')}</td>
+                    <td class="c">${escapeHtml(r.status || '—')}</td>
+                    <td class="c">${typeof r.cost === 'number' ? (r.cost.toLocaleString('en-US') + ' ' + escapeHtml(r.currency || '')) : '—'}</td>
+                    <td>${escapeHtml(r.workshop || '—')}</td>
+                    <td class="desc">${escapeHtml((r.description || '').trim() || '—')}</td>
+                    <td class="c">${r._next ? escapeHtml(trkFormatDate(r._next)) : '—'}</td>
+                </tr>`;
+            }).join('');
+
+            const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>تقرير سجل الصيانة</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Cairo", "Segoe UI", Tahoma, Arial, sans-serif;
+    color: #1f2937; margin: 0; padding: 0; background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .sheet { width: 100%; }
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 2.5px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 12px;
+  }
+  .brand h1 { margin: 0 0 4px; font-size: 18px; color: #1e3a5f; }
+  .brand p { margin: 0; font-size: 12px; color: #64748b; }
+  .meta { text-align: left; font-size: 11px; color: #475569; line-height: 1.7; }
+  .meta strong { color: #1e3a5f; }
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;
+  }
+  .kpi {
+    border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; background: #f8fafc;
+  }
+  .kpi .n { font-size: 16px; font-weight: 800; color: #1e3a5f; }
+  .kpi .l { font-size: 10.5px; color: #64748b; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  thead th {
+    background: #1e3a5f; color: #fff; padding: 7px 6px; text-align: right;
+    font-weight: 700; border: 1px solid #16314f;
+  }
+  tbody td {
+    padding: 6px; border: 1px solid #dbe3ee; vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  td.c { text-align: center; white-space: nowrap; }
+  td.desc { white-space: normal; line-height: 1.4; max-width: 180px; }
+  .footer {
+    margin-top: 14px; padding-top: 8px; border-top: 1px solid #cbd5e1;
+    display: flex; justify-content: space-between; font-size: 10.5px; color: #64748b;
+  }
+  @media print {
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="header">
+      <div class="brand">
+        <h1>تقرير سجل الصيانة</h1>
+        <p>نظام جرد الآليات والمركبات</p>
+      </div>
+      <div class="meta">
+        <div><strong>تاريخ الطباعة:</strong> ${printDate}</div>
+        <div><strong>الفلاتر:</strong> ${escapeHtml(filterBits)}</div>
+        <div><strong>عدد السجلات:</strong> ${sorted.length}</div>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="n">${sorted.length}</div><div class="l">إجمالي السجلات</div></div>
+      <div class="kpi"><div class="n">${new Set(sorted.map(r => r.vehicleId).filter(Boolean)).size}</div><div class="l">مركبات مصانة</div></div>
+      <div class="kpi"><div class="n">${totalCost.toLocaleString('en-US')}</div><div class="l">إجمالي التكلفة</div></div>
+      <div class="kpi"><div class="n">${sorted.filter(r => r._next && r._next < new Date()).length}</div><div class="l">صيانات متأخرة</div></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>التاريخ</th>
+          <th>المركبة</th>
+          <th>رقم اللوحة</th>
+          <th>النوع</th>
+          <th>الحالة</th>
+          <th>التكلفة</th>
+          <th>الورشة</th>
+          <th>وصف العمل المنجز</th>
+          <th>الصيانة القادمة</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div class="footer">
+      <span>مستند داخلي — طباعة بحجم A4 أفقي</span>
+      <span>الصفحة 1</span>
+    </div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.focus(); window.print(); }, 250);
+    };
+  <\/script>
+</body>
+</html>`;
+
+            const win = window.open('', '_blank', 'width=1200,height=800');
+            if (!win) {
+                showToast('يرجى السماح بالنوافذ المنبثقة للطباعة', 'error');
+                return;
+            }
+            win.document.open();
+            win.document.write(html);
+            win.document.close();
         }
 
         async function loadProfilePage() {
@@ -11550,29 +11832,29 @@
             if (!user) return;
 
             try {
-                const { collection, query, where, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
 
-                // Movement records
+                // Movement records — shared (no userId filter)
                 trackingRecordsCache = [];
                 try {
-                    const snap = await getDocs(query(collection(window.firebaseDb, 'vehicleTracking'), where('userId', '==', user.uid)));
+                    const snap = await getDocs(collection(window.firebaseDb, 'vehicleTracking'));
                     snap.forEach(d => trackingRecordsCache.push({ id: d.id, ...d.data() }));
                 } catch (e) { console.log('No tracking records or index needed'); }
 
-                // Odometer readings (for unified activity feed)
+                // Odometer readings (for unified activity feed) — shared
                 trackingKmCache = [];
                 try {
-                    const snap = await getDocs(query(collection(window.firebaseDb, 'vehicleKilometers'), where('userId', '==', user.uid)));
+                    const snap = await getDocs(collection(window.firebaseDb, 'vehicleKilometers'));
                     snap.forEach(d => trackingKmCache.push({ id: d.id, ...d.data() }));
                 } catch (e) { console.log('No km records'); }
 
-                // Project locations (for map view)
+                // Project locations (for map view) — shared
                 trackingProjectLocations = {};
                 try {
                     const snap = await getDocs(collection(window.firebaseDb, 'projectLocations'));
                     snap.forEach(d => {
                         const data = d.data();
-                        if (data && data.userId === user.uid && data.project) {
+                        if (data && data.project) {
                             trackingProjectLocations[data.project] = { lat: data.lat, lng: data.lng };
                         }
                     });
@@ -11829,10 +12111,13 @@
             });
             trackingKmCache.forEach(r => {
                 const d = trkToDate(r.readingDate) || trkToDate(r.createdAt);
+                const fuelPart = (typeof r.fuelAmount === 'number')
+                    ? ` · وقود: ${escapeHtml(String(r.fuelAmount))} لتر${r.fuelType ? ' (' + escapeHtml(r.fuelType) + ')' : ''}`
+                    : '';
                 events.push({
                     date: d, type: 'km', vehicleNumber: r.vehicleNumber || '',
                     vehicleId: r.vehicleId || '',
-                    detail: `قراءة عداد: ${escapeHtml(String(r.kilometers ?? r.reading ?? '—'))} كم`,
+                    detail: `قراءة عداد: ${escapeHtml(String(r.kilometers ?? r.reading ?? '—'))} كم${fuelPart}`,
                     icon: 'fa-gauge-high', color: '#6f42c1',
                     notes: r.notes || ''
                 });
@@ -11994,12 +12279,14 @@
                     <div style="max-height:50vh; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
                         ${projects.map(p => {
                             const loc = trackingProjectLocations[p] || {};
+                            const latVal = (typeof loc.lat === 'number' && !isNaN(loc.lat)) ? String(loc.lat) : '';
+                            const lngVal = (typeof loc.lng === 'number' && !isNaN(loc.lng)) ? String(loc.lng) : '';
                             return `
                             <div style="border:1px solid var(--border-light,#e9edf3); border-radius:10px; padding:12px;">
                                 <div style="font-weight:700; margin-bottom:8px; color:var(--text-dark);"><i class="fas fa-building" style="color:var(--primary-color);"></i> ${escapeHtml(p)}</div>
                                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                                    <input type="number" step="any" placeholder="lat" value="${loc.lat ?? ''}" data-loc-lat="${escapeHtml(p)}" style="flex:1; min-width:120px; padding:8px; border:1px solid var(--border-color,#d7dce3); border-radius:8px;">
-                                    <input type="number" step="any" placeholder="lng" value="${loc.lng ?? ''}" data-loc-lng="${escapeHtml(p)}" style="flex:1; min-width:120px; padding:8px; border:1px solid var(--border-color,#d7dce3); border-radius:8px;">
+                                    <input type="number" step="any" placeholder="lat" value="${latVal}" data-loc-lat="${escapeHtml(p)}" style="flex:1; min-width:120px; padding:8px; border:1px solid var(--border-color,#d7dce3); border-radius:8px;">
+                                    <input type="number" step="any" placeholder="lng" value="${lngVal}" data-loc-lng="${escapeHtml(p)}" style="flex:1; min-width:120px; padding:8px; border:1px solid var(--border-color,#d7dce3); border-radius:8px;">
                                 </div>
                             </div>`;
                         }).join('')}
@@ -12257,6 +12544,7 @@
         window.renderMaintenance = renderMaintenance;
         window.resetMaintenanceFilters = resetMaintenanceFilters;
         window.exportMaintenanceReport = exportMaintenanceReport;
+        window.printMaintenanceReport = printMaintenanceReport;
         window.deleteMaintenanceFromLog = deleteMaintenanceFromLog;
         window.loadTrackingPage = loadTrackingPage;
         window.filterTracking = filterTracking;
@@ -12458,13 +12746,13 @@
                     return;
                 }
                 
-                const { collection, query, where, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
                 
                 const termsRef = collection(window.firebaseDb, 'terms');
-                const q = query(termsRef, where('userId', '==', user.uid));
-                const querySnapshot = await getDocs(q);
+                // Shared terms across all users
+                const querySnapshot = await getDocs(termsRef);
                 
-                console.log('✅ Loading terms for user:', user.uid, '- Found', querySnapshot.size, 'terms');
+                console.log('✅ Loading shared terms - Found', querySnapshot.size, 'terms');
                 
                 // Reset terms
                 Object.keys(termsData).forEach(key => {
